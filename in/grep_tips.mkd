@@ -1,0 +1,11 @@
+# grep
+
+***
+
+## 过滤
+
+**使用 -v 参数过滤**
+
+- 过滤空行和注释行
+
+    >`# cat /etc/keystone/keystone.conf | grep -v ^$ |grep -v ^#`

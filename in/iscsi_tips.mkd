@@ -1,0 +1,100 @@
+# iscsi 
+
+***
+
+## 配置iscsi server
+
+**配置防火墙规则**
+
+
+   >`# firewall-cmd --permanent --add-port=3260/tcp;firewall-cmd --reload`
+
+**配置iscsi server**
+
+1. 开启服务
+
+    >`# systemctl enable target.service;systemctl start target.service`
+
+- 通过targetcli配置
+
+    >`# targetcli`
+    
+    >`targetcli shell version 2.1.fb34`
+    
+    >`Copyright 2011-2013 by Datera, Inc and others.`
+
+    >`For help on commands, type 'help'.`
+
+- 创建存储对象，例如 block，file
+
+    >`/> backstores/block create Datastore /dev/sdb`
+
+    >`Created block storage object Datastore using /dev/sdb.`
+
+- 创建iscsi target
+
+    >`/> /iscsi create iqn.2015-03.cn.vqiu.iscsi.server0`
+
+    >`Created target iqn.2015-03.cn.vqiu.iscsi.server0.`
+
+    >`Created TPG 1.`
+    
+- ***有多个ip时必须需要手动指定 portal***
+
+    >`/> iscsi/iqn.2015-03.cn.vqiu.iscsi:server0/tpg1/portals create 192.168.25.12 ip_port=3260`
+
+    >`Using default IP port 3260`
+
+    >`Created network portal 192.168.25.18:3260.`
+
+- 配置acl，允许客户端访问，需要提供客户端initiatorname
+
+    >`/> iscsi/iqn.2015-03.cn.vqiu.iscsi:server0/tpg1/acls create iqn.2015-03.cn.vqiu.cn:desktop`
+
+    >`Created Node ACL for iqn.2015-03.cn.vqiu.cn:desktop`
+
+- 创建lun 通过已有的存储
+
+    >`/> iscsi/iqn.2015-03.cn.vqiu.iscsi:server0/tpg1/luns create /backstores/block/Datastore`
+
+    >`Created LUN 0.`
+
+    >`Created LUN 0->0 mapping in node ACL iqn.2015-03.cn.vqiu.cn:desktop`
+
+- 保存配置
+
+    >`/> saveconfig`
+
+    >`Last 10 configs saved in /etc/target/backup.`
+
+    >`Configuration saved to /etc/target/saveconfig.json`
+
+- 重启target 服务
+
+    >`# systemctl restart target.service`
+
+## 客户端连接
+
+***确保iSCSI-target 安装***
+
+>`# yum -y install iscsi*`
+
+***确保客户端initatorname和服务端配置的ACL一致***
+
+>`# cat /etc/iscsi/initiatorname.iscsi`
+
+>`InitiatorName=iqn.2015-03.cn.vqiu.cn:desktop`
+
+**发现 target**
+
+>`# iscsiadm -m discovery -t st -p 192.168.25.12`
+
+>`192.168.25.12:3260,1 iqn.2015-03.cn.vqiu.iscsi:server0`
+
+**启动iscsi服务**
+
+>`# systemctl start iscsi.service`
+
+**用fdisk查看是否多一块存储出来**
+
+>`# fdisk -l`
