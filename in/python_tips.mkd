@@ -1,0 +1,7 @@
+# python
+
+***
+
+## 安装 easy_install
+
+>`# dnf install python-setuptools`
