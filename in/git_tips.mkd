@@ -1,0 +1,112 @@
+# git
+
+***
+
+## 分支操作
+
+**删除远程分支**
+
+
+   `#git branch -r -d origin/guoqianplink`
+
+**删除本地分支**
+
+   `# git branch -d guoqianplink`
+***
+
+
+## 创建git server
+
+1. 创建git 用户
+
+    `$ sudo adduser git`
+
+    `$ su git`
+
+    `$ cd`
+
+    `$ mkdir .ssh && chmod 700 .ssh`
+
+    `$ touch .ssh/authorized_keys && chmod 600 .ssh/authorized_keys`
+
+- 将客户端ssh 公钥添加到授权keys中
+
+    `# cat /tmp/id_rsa.john.pub >> ~/.ssh/authorized_keys`
+
+- 创建项目：
+
+    `$ cd /opt/git`
+
+    `$ mkdir project.git`
+
+    `$ cd project.git`
+
+    `$ git init --bare`
+
+- 在客户端初始化项目
+
+    `$ cd myproject`
+
+    `$ git init`
+
+    `$ git add README (事先编辑一下)`
+
+    `$ git commit -m "add README"`
+    
+    `$ git remote add origin ssh://git@45.78.59.13:26606/home/git/vimconfig.git`
+
+    `$ git push origin master`
+
+- 其他客户端来pull
+
+
+
+
+
+***
+
+## tag操作
+
+### 创建tag
+
+>   #  git tag -a v0.1.2 -m “0.1.2版本”
+
+### push tag
+
+>   # git push origin v0.1.2
+
+***
+
+## autotest framework 使用
+
+1. \# git clone git://qe-git.englab.nay.redhat.com/s2/autotest-devel ; git clone git://qe-git.englab.nay.redhat.com/s2/staf-kvm-devel
+
+- \# cd staf-kvm-devel
+
+- \# ln -s /path/to/autotest-devel/client kvm-test (ln -sf /home/autotest-devel/client kvm-test)
+
+- \# cd /home/staf-kvm-devel/kvm-test/tests/virt/test-providers.d/downloads/io-github-autotest-qemu/qemu/cfg
+
+- \# vim tests-example.cfg
+
+- \# ../../../../../virttest/cartesian_config.py tests-example.cfg
+
+
+- \# screen ../../../../../../../autotest-local ../control_files/control.kernel-version 
+
+- \#python ConfigLoop.py  --category=virtual_nic_device  --vhost=on --guestname=Win8.x86_64.1,RHEL.6.6  --driveformat=virtio_blk
+
+-  \#python ConfigLoop.py --category=virtual_nic_device --guestname=RHEL.7.1 --platform=x84_64 --nicmodel=virtio_net --driveformat=virtio_blk --display=spice --imageformat=qcow2
+
+-  staf-kvm-devel# python ConfigLoop.py --category=virtual_nic_device --guestname=RHEL.7.1 --platform=x84_64 --nicmodel=virtio_net --driveformat=virtio_blk --display=spice --imageformat=qcow2
+
+
+- \#screen  python ConfigLoop.py --category=virtual_nic_device --guestname=RHEL.7.1 --platform=x86_64 --nicmodel=virtio_net --driveformat=virtio_blk --display=spice --imageformat=qcow2
+
+
+- \# python ConfigTest.py --testcase=win_virtio_update.install_driver --clone=no
+
+
+- \# autotest-devel/client/tests/virt/test-providers.d/downloads/io-github-autotest-qemu/qemu
+
+- \# autotest-devel/client/tests/virt/backends/qemu

@@ -1,0 +1,20 @@
+# 扩展swap
+
+***
+
+## 新分区扩展swap
+
+- 假如有一个新的分区/dev/sda3,我们用它来作swap.
+
+>>  # swapon -s –查看当前swap情况
+
+>>  # mkswap /dev/sda3
+
+>>  # swapon /dev/sda3
+
+>>  # swapon -s
+
+>>  # vi /etc/fstab
+
+>>  /dev/sda3 swap swap defaults 0 0 –添加开机自动挂载
+

@@ -1,0 +1,17 @@
+# hugepage
+
+***
+
+## 1G hugepage setup:
+
+- in kernel line
+
+>> default_hugepagesz=1G hugepagesz=1G hugepages=N
+
+>  *N --the hugepage numbers*
+
+- Mount the hugetlbfs
+
+>  *mount the hugetlbfs in the host*
+
+>>  # mount -t hugetlbfs hugetlbfs /mnt/hugetlbfs/ -o pagesize=1G

@@ -1,0 +1,30 @@
+# ovs
+
+***
+
+## 两个ovs通信
+
+1. 添加两个ovs桥
+
+    >   # ovs-vsctl add-br br0
+
+    >   # ovs-vsctl add-br br1
+
+- 为br0, br1添加虚拟端口
+
+    >   # ovs-vsctl add-port br0 patch-to-br1
+
+    >   # ovs-vsctl add-port br1 patch-to-br0
+
+- 设置虚拟端口为patch类型
+
+    >   # ovs-vsctl set interface patch-to-br1 type=patch
+
+    >   # ovs-vsctl set interface pathc-to-br0 type=patch
+
+- 将2个虚拟端口配置为 peer
+
+    >   # ovs-vsctl set interface patch-to-br1 options:peer=patch-to-br0
+
+    >   # ovs-vsctl set interface patch-to-br0 options:peer=patch-to-br1
+

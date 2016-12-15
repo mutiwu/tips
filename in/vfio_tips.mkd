@@ -1,0 +1,11 @@
+# vfio
+
+***
+
+## set vfio bind back
+
+1.  >    # echo "14e4 16a1" > /sys/bus/pci/devices/0000\:05\:00.1/driver/new_id
+
+-   >   # echo "0000:05:00.1" > /sys/bus/pci/drivers/vfio-pci/unbind
+
+-   >   # echo "0000:05:00.1" > /sys/bus/pci/drivers/bnx2x/bind

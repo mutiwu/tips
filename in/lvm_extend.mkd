@@ -1,0 +1,78 @@
+***
+# 扩展lv
+
+## 卸载LV
+
+> umount *'挂载目'录*
+
+## 扩展LV
+
+> > lvextend -L +500m /dev/lv00/lv01
+
+> 或者
+
+> > lvresize -L 5G /dev/lv00/lv01
+
+- lvextend 表示增加500M
+- lvresize表示增加到5G，是调整后的容量
+
+## 检查文件系统
+
+> fsck -f  /dev/vg00/lv01
+
+
+## 重建文件系统
+
+> resize2fs  /dev/lv00/lv01
+
+- - *这一步很关键，重建文件系统不用担心LV的数据会丢失，当然，以防万一，也可以先备份下LV里的数据。*
+
+## 挂载LV
+
+> mount  /dev/lv001/lv01  /opt
+
+***
+# 缩小LV
+
+- *缩小LV需要事先知道LV中的数据容量大小，缩小容量值不应超过剩余空间容量，而且要知道减少LV容量后的新大小。可以通过lvscan来查看LV容量，通过vgdisplay来查看剩余容量。*
+
+## 卸载LV
+
+> umount *'挂载目'录*
+
+## 检查文件系统
+
+> fsck -f  /dev/vg00/lv01
+
+## 调整LV大小并重建文件系统
+
+> resize2fs  /dev/vg00/lv01  2G
+
+## 减小LV容量
+
+> lvreduce -L -3G  /dev/vg00/lv01
+
+## 挂载LV
+
+> mount  /dev/lv001/lv01  /opt
+
+***
+
+# LV扩容
+
+> lvextend -L +5000 /dev/mapper/rootvg-lv_home 
+
+***
+
+# 文件系统扩容(占满LV) 
+
+> resize2fs -p /dev/mapper/rootvg-lv_home 
+
+***
+
+# 增加pv到vg
+
+> vgextend rootvg /dev/sdb
+
+***
+

@@ -1,0 +1,97 @@
+# 创建新的虚拟机
+
+***
+
+## 通过已经装好的SLES虚拟机 拷贝一个新的虚拟机
+
+1. 查看当前都有那些虚拟机
+
+    >   # simplekvm --list
+
+    > *使用一个没有运行的虚拟机例如'sles12base' 来做base*
+
+- 创建虚拟机
+
+    >   # simplekvm -i wkhsles12node1
+
+    >   />.............................
+
+    >   /home/vmimgs/wkhsles12node1.qcow2 does not exist, please choose:
+
+    >    />.............................
+
+    >   1: Copy from an exist IMG
+
+    >   2: Create a new IMG
+
+    >   q: Quit
+
+    >   />
+
+    > *选择 1*
+
+    >    />1
+
+    >   />.............................
+
+    >   Please choose what images you need to copy.
+
+    >   />.............................
+
+    >   1: Copy from current vms.
+
+    >   2: Copy from other images.
+
+    >   3: Back to the pre menu.
+
+    >   />
+
+    > *选择1，从现有的虚拟机拷贝*
+
+    >   />1
+
+    >   Please specify the src vm name.
+
+    >   />
+
+    > *输入要拷贝的虚拟机名字 ‘sles12base’*
+
+    > 成功
+
+- 启动虚拟机
+
+    >   # simplekvm -i wkhsles12node1 --run
+
+    > *使用  vnc 端口连接*
+
+## 通过ISO安装虚拟机
+
+
+1. 创建虚拟机
+
+    >   # simplekvm -i wkhsles12node1 --iso
+
+    >   />.............................
+
+    >   /home/vmimgs/wkhsles12node1.qcow2 does not exist, please choose:
+
+    >    />.............................
+
+    >   1: Copy from an exist IMG
+
+    >   2: Create a new IMG
+
+    >   q: Quit
+
+    >   />
+
+    > *选择 2*
+
+    >   />2
+
+2. 剩下的根据步骤选择文件大小等
+
+3. 运行虚拟机病挂在iso
+
+    >   # simplekvm -i wkhsles12node1 --iso --run
+

@@ -1,0 +1,85 @@
+# 配置java home
+
+***
+
+## 软件下载
+- 下载JDK（下面分别是32位系统和64位系统下的版本）
+
+>> http://download.oracle.com/otn-pub/java/jdk/7u9-b05/jdk-7u9-linux-i586.tar.gz?AuthParam=1350717577_c0836b48d7dc4cd4598cdd4f0d49e6f6 #32位
+
+>> http://download.oracle.com/otn-pub/java/jdk/7u9-b05/jdk-7u9-linux-x64.rpm?AuthParam=1350717726_9b669eca29c07ddaaf6d8dc41e7a2684 #64位
+
+>>  # getconf LONG_BIT # 查看系统多少位
+
+## 安装JDK7.0版本
+
+- 卸载服务器自带的jdk软件包
+
+>>  # java -version #查看服务器是否安装过jdk
+
+>>  java version "1.6.0_17"
+
+>>  OpenJDK Runtime Environment (IcedTea6 1.7.4) (rhel-1.21.b17.el6-i386)
+
+>>  OpenJDK Client VM (build 14.0-b16, mixed mode)
+
+>>  # rpm -qa |grep gcj #查看服务器安装的jdk软件包信息
+
+>>  libgcj-4.4.4-13.el6.i686
+
+>>  java-1.5.0-gcj-1.5.0.0-29.1.el6.i686
+
+>>  # yum -y remove java-1.5.0-gcj-1.5.0.0-29.1.el6.i686 #卸载软件包
+
+- 安装jdk7.0 
+
+> *解压配置安装*
+
+>>  # mkdir -p /usr/lib/jvm
+
+>>  # tar zxvf jdk-7u9-linux-i586.tar.gz -C /usr/lib/jvm
+
+>>  # mv /usr/lib/jvm/jdk1.7.0_09 /usr/lib/jvm/java7
+
+
+- 添加jdk7.0到系统环境变量
+
+>>  ＃ cp /etc/profile /etc/profile.bak #备份
+
+>>  ＃ cat /etc/profile #编辑,在最后添加下面的内容
+
+>>  export JAVA_HOME=/usr/lib/jvm/java7
+
+>>  export JRE_HOME=${JAVA_HOME}/jre
+
+>>  export CLASSPATH=.:${JAVA_HOME}/lib:${JRE_HOME}/lib
+
+>>  export PATH=${JAVA_HOME}/bin:$PATH
+
+>>  ＃　source /etc/profile 　　　#使配置文件立即生效
+
+> *由于系统中可能会有默认的其他版本JDK，所以，为了将我们安装的JDK设置为默认JDK版本，还要进行如下工作。*
+
+>>  update-alternatives --install /usr/bin/java java /usr/lib/jvm/java7/bin/java 300
+
+>>  update-alternatives --install /usr/bin/javac javac /usr/lib/jvm/java7/bin/javac 300
+
+>>  update-alternatives --install /usr/bin/jar jar /usr/lib/jvm/java7/bin/jar 300
+
+>>  update-alternatives --install /usr/bin/javah javah /usr/lib/jvm/java7/bin/javah 300
+
+>>  update-alternatives --install /usr/bin/javap javap /usr/lib/jvm/java7/bin/javap 300
+
+> *执行下面命令，设置默认版本，此命令执行后，系统会列出当前存在的各种JDK版本，会提示你选择*
+
+>>  # update-alternatives --config java
+
+- 测试
+
+>>  # java -version # 测试是否成功 
+
+>>java version "1.7.0_09"
+
+>>Java(TM) SE Runtime Environment (build 1.7.0_09-b05)
+
+>>Java HotSpot(TM) Client VM (build 23.5-b02, mixed mode)

@@ -1,0 +1,5 @@
+# console *redhat*
+
+***
+
+>>  # console -M console.eng.nay.redhat.com dell-per720-01.qe.lab.eng.nay.redhat.com -l

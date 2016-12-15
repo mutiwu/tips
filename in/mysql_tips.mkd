@@ -1,0 +1,22 @@
+# mysql
+
+***
+
+## mysql 关闭 端口
+
+> Mysql会自动开启3306端口用于远程连接mysql服务. 3306端口就是MySQL的默认端口, 但是黑客可以通过它来攻击你的主机系统. 服务器默认MySQL端口是3306, 最近经常被扫描, 甚至扫描到网站很慢或者打不开. 如果不需要远程数据库连接就可以让Mysql关闭3306端口, 既提高了访问速度, 又提高了安全性. 避免远程连接mysql数据库. 本地程序可以通过mysql.sock来连接, 不影响使用
+
+1. SSH到主机，编辑mysql配置文件
+
+    >  # vi /etc/my.cnf
+
+- 在[mysqld]下添加:
+
+    > skip-networking
+
+- 重启mysqld服务
+
+    >   # service mysqld restart
+
+
+ 
