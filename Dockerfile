@@ -1,6 +1,6 @@
 #FROM daocloud.io/centos
 
-FROM tips
+FROM daocloud.io/mutiwu/tips
 MAINTAINER Mutiwu <gquo@qq.com>
 
 #RUN yum install python screen -y
