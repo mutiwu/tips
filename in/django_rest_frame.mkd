@@ -1,0 +1,1036 @@
+# django rest framework
+
+***
+## 教程一： Serializers ***序列化***
+*自动地将模型的实例对象序列化，生成json数据更方便前端使用*
+   
+*就是帮你把response打包成某种格式（如JSON)的东西。 可以根据一个model来定义一个serializer。 如一个model 叫PersonModel， 里面有name和age， PersonSerilizer 之后会是{name: Xiaoming, age: 18}这样的格式。 同理接收到的POST data，可以通过PersonSerializer(POST.data)来重建一个Person.*
+
+*如果阅读Django-REST-Framework的文档，你会发现serializer实际上做了一件事情
+serilization : isntance → native datatype → Json，将model实例的转为json格式response出去。同理，deserializer则是Json → native datatype → isntance。 然而从REST的设计原则看，可以知道它实际上是为了满足客户端的需求，现在的web后端与客户端（ios/android）打交道的多，这样的格式化response更便于它们解析。*
+
+
+
+1. ### 介绍
+
+    本教程覆盖创建一个简单的pastebin 代码高亮（code highlighting）的Web API.接下来，本教程将会介绍各种组件来组成Rest框架。最终能够综合的理解这些组件是如何协同工作的。
+
+    **Note:**此教程的代码可以从[tomchristie/rest-framework-tutorial](https://github.com/tomchristie/rest-framework-tutorial)仓库获取。完整的实现也可以通过一个在线的沙盒版本呈现[点击此处](http://restframework.herokuapp.com/)。
+
+- ### 开始一个新的环境
+
+    在我们开始前，我们将创建一个新的虚拟环境，使用virtualenv.这样可以使我们的包配置与其他的项目保持隔离。
+    
+            virtualenv env
+            source env/bin/activate
+
+    现在我们在这个虚拟环境里安装需要用的python包
+
+            pip install django
+            pip install djangorestframework
+            pip install pygments  # 用来制作代码高亮
+
+    **NOTE:**退出虚拟环境使用 `deactivate`
+
+- ### 开始
+
+    开始写代码。在开始之前，创建一个新的项目
+    
+            django-admin.py startproject tutorial
+            cd tutorial
+
+    此时我们可以创建app用来创建一个简单的Web APP
+    
+            python manage.py startapp snippets
+
+    我们需要添加`snippets`应用和`rest_framework`应用到`INSTALLED_APPS`.我们来编辑文件`tutorial/settings.py`
+    
+            INSTALLED_APPS = (
+                ...
+                'rest_framework',
+                'snippets.apps.SnippetsConfig',
+            )
+
+    好了，我们可以继续啦
+
+- ### 创建Model
+
+    为了达到此教程的目的，我们将要创建一个简单的`Snippet`model 用来存储代码片段（code snippets）。下面将编辑`Snippet/models.py`文件。**Note:**好的编程习惯是包括*书写注释*。
+
+            from django.db import models
+            from pygments.lexers import get_all_lexers
+            from pygments.styles import get_all_styles
+            
+            LEXERS = [item for item in get_all_lexers() if item[1]]
+            LANGUAGE_CHOICES = sorted([(item[1][0], item[0]) for item in LEXERS])
+            STYLE_CHOICES = sorted((item, item) for item in get_all_styles())
+            
+            
+            class Snippet(models.Model):
+                created = models.DateTimeField(auto_now_add=True)
+                title = models.CharField(max_length=100, blank=True, default='')
+                code = models.TextField()
+                linenos = models.BooleanField(default=False)
+                language = models.CharField(choices=LANGUAGE_CHOICES, default='python', max_length=100)
+                style = models.CharField(choices=STYLE_CHOICES, default='friendly', max_length=100)
+            
+                class Meta:
+                    ordering = ('created',)
+
+    在创建完model后，我们需要为我们的`snippet model`进行一次初始化迁移（创建数据库），并第一次同步数据库
+
+            python manage.py makemigrations snippets
+            python manage.py migrate
+
+
+- ### 创建一个序列化器类（Serializer class）
+
+    在开发我们的Web API的第一件事情是提供一种方法去序列化和反序列化snippet 实例成一个表现形式（格式），例如`json`。我们可以像`Django`的`forms`一样通过声明序列化器（serializers）。在`snippets`目录下创建一个名为`serializes.py`的文件。
+
+            from rest_framework import serializers
+            from snippets.models import Snippet, LANGUAGE_CHOICES, STYLE_CHOICES
+
+
+            class SnippetSerializer(serializers.Serializer):
+                id = serializers.IntegerField(read_only=True)
+                title = serializers.CharField(required=False, allow_blank=True, max_length=100)
+                code = serializers.CharField(style={'base_template': 'textarea.html'})
+                linenos = serializers.BooleanField(required=False)
+                language = serializers.ChoiceField(choices=LANGUAGE_CHOICES, default='python')
+                style = serializers.ChoiceField(choices=STYLE_CHOICES, default='friendly')
+            
+                def create(self, validated_data):
+                    """
+                    Create and return a new 'Snippet' instance, given the validated data
+                    :param validated_data:
+                    :return:
+                    """
+                    return Snippet.objects.create(**validated_data)
+            
+                def update(self, instance, validated_data):
+                    """
+                    update and return an existing 'Snippet' instance, given the validated data
+                    :param instance:
+                    :param validated_data:
+                    :return:
+                    """
+                    instance.title = validated_data.get('title', instance.title)
+                    instance.code = validated_data.get('code', instance.code)
+                    instance.linenos = validated_data.get('linenos', instance.linenos)
+                    instance.language = validated_data.get('language', instance.language)
+                    instance.style = validated_data.get('style', instance.style)
+                    instance.save()
+                    return instance
+
+
+    序列化器类的第一部分定义了被序列化和反序列化的`field`。`create()`和`update()`方法定义了一个完整的成形的实例是怎么被创建的或者在`serializer.save()`后如何被修改的
+
+    序列化器类与Django的`Form`类是很相似的，包括相似的*在各个fields中的有效标志*，比如：`required`，`max_length`，`default`
+
+    这些field标志还可以控制序列化器应该怎么在特定的环境下展示（displayed），例如何时渲染成html页面。上面的`{'base_template': 'textarea.html'}`标记相当于在Django`Form`类中使用`widget=widgets.Textarea`。这对于控制应该怎么展示可浏览的API是非常有用的，在我们后面的教程中会看到。
+
+    我们也可以使用`ModelSerializer`来代替Serializer。在后面的章节会体现。
+
+- ### 使用序列化器进行工作
+
+    在我们更进一步前，我们可以使用我们新的序列化类来熟悉序列化怎么工作。让我们使用Django shell来测试。
+
+            python manage.py shell
+
+    下面，在一些必要的imports后，我们来创建一些`code snippets` 实例
+
+            
+            In [1]: from snippets.models import Snippet
+            
+            In [2]: from snippets.serializers import SnippetSerializer
+            
+            In [3]: from rest_framework.renderers import JSONRenderer
+            
+            In [4]: from rest_framework.parsers import JSONParser
+
+            In [5]: snippet = Snippet(code='foo = "bar"\n')
+
+            In [6]: snippet.save()
+            
+            In [7]: snippet = Snippet(code='print "hello, world"\n')
+            
+            In [8]: snippet.save()
+
+    这是我们得到了一些`snippet instances`，下面我们来序列化其中一个实例
+
+            In [9]: serializer = SnippetSerializer(snippet)
+
+            In [10]: serializer.data
+            Out[10]: 
+            ReturnDict([('id', 2),
+                        ('title', u''),
+                        ('code', u'print "hello, world"\n'),
+                        ('linenos', False),
+                        ('language', 'python'),
+                        ('style', 'friendly')])
+
+    此时我们获取了从model实例翻译过来的python内部数据类型。下面我们完成序列化，将数据渲染成`JSON`。
+
+            In [11]: content = JSONRenderer().render(serializer.data)
+
+            In [12]: content
+            Out[12]: '{"id":2,"title":"","code":"print \\"hello, world\\"\\n","linenos":false,"language":"python","style":"friendly"}'
+
+    反序列化也是类似的。首先我们将一个流解析成python的内建数据类型
+
+            In [13]: from django.utils.six import BytesIO
+
+            In [14]: stream = BytesIO(content)
+
+            In [17]: data = JSONParser().parse(stream)
+
+            In [18]: data
+            Out[18]: 
+            {u'code': u'print "hello, world"\n',
+             u'id': 2,
+             u'language': u'python',
+             u'linenos': False,
+             u'style': u'friendly',
+             u'title': u''}
+            
+    然后我们恢复这些内建数据类型成一个完全填充的对象实例
+
+            In [19]: serializer = SnippetSerializer(data=data)
+
+            In [20]: serializer.is_valid()
+            Out[20]: True
+            
+            In [21]: serializer.validated_data
+            Out[21]: 
+            OrderedDict([(u'title', u''),
+                         (u'code', u'print "hello, world"'),
+                         (u'linenos', False),
+                         (u'language', 'python'),
+                         (u'style', 'friendly')])
+            
+            In [22]: serializer.save()
+            Out[22]: <Snippet: Snippet object>
+
+    我们发现这个过程与`forms`很相似。当我们使用serializer开始写views的时候，这个相似性会更加的明显。
+
+    我们也可以序列化`querysets`来代替model实例。这么做的前提是添加标志`many=True`到serializer参数中。
+
+            In [23]: serializer = SnippetSerializer(Snippet.objects.all(), many=True)
+            
+            In [24]: serializer.data
+            Out[24]: [OrderedDict([('id', 1), ('title', u''), ('code', u'foo = "bar"\n'), ('linenos', False), ('language', 'python'), ('style', 'friendly')]), OrderedDict([('id', 2), ('title', u''), ('code', u'print "hello, world"\n'), ('linenos', False), ('language', 'python'), ('style', 'friendly')]), OrderedDict([('id', 3), ('title', u''), ('code', u'print "hello, world"'), ('linenos', False), ('language', 'python'), ('style', 'friendly')])]
+            
+- ### 使用ModelSerializer
+
+    我们在编辑`SnippetSerializer`类的时候大量的复制了model`Snippet`的信息。使用`ModelSerializer`可以使我们的代码更加简洁。
+
+    非常相似的，Django提供了`Form`和`ModelForm`类，REST framework提供了`Serializer`和`ModelSerializer`类
+
+    我们来使用`ModelSerializer`来重构我们的序列化器。再次打开并编辑`snippets/serializers.py`，使用以下代码来代替原来的`SnippetSerializer`类。
+
+            class SnippetSerializer(serializers.ModelSerializer):
+                class Meta:
+                    model = Snippet
+                    fields = ('id', 'title', 'code', 'linenos', 'language', 'style')
+
+    serializers 有一个很友好的属性可以在一个serializer实例中通过打印他的表现形式（representation）帮助检查所有的fields。
+
+    打开django shell尝试下列代码
+
+            In [1]: from snippets.serializers import SnippetSerializer
+            
+            In [2]: serializer = SnippetSerializer()
+            
+            In [3]: print(repr(serializer))
+            SnippetSerializer():
+                id = IntegerField(label='ID', read_only=True)
+                title = CharField(allow_blank=True, max_length=100, required=False)
+                code = CharField(style={'base_template': 'textarea.html'})
+                linenos = BooleanField(required=False)
+                language = ChoiceField(choices=[('abap', 'ABAP'), ('abnf', 'ABNF'), ...
+                style = ChoiceField(choices=[('algol', 'algol'), ('algol_nu', 'algol_nu'), ...
+
+    **Note:**ModelSerializer类只是创建serializer类的快捷方式，而并不会做其他特别神奇的事情。功能主要是：
+
+- - 一个自动判定fields组
+- - 简单的实施`create()`和`update()`方法。
+
+- ### 使用Serializer编辑标准的Django view
+
+    接下来我们书写一些API的视图（View）来使用我们的Serializer 类。现在我们并不使用任何其他的REST framework的其他功能，我们只编辑普通的django view。
+
+    我们通过创建HttpResponse的子类可以用来渲染所有我们要写入到`JSON`的数据
+
+    编辑`snippets/views.py`文件，添加下列内容。
+
+            from django.http import HttpResponse
+            from django.views.decorators.csrf import csrf_exempt
+            from rest_framework.renderers import JSONRenderer
+            from rest_framework.parsers import JSONParser
+            from snippets.models import Snippet
+            from snippets.serializers import SnippetSerializer
+            
+            class JSONResponse(HttpResponse):
+                """
+                An HttpResponse that renders its content into JSON.
+                """
+                def __init__(self, data, **kwargs):
+                    content = JSONRenderer().render(data)
+                    kwargs['content_type'] = 'application/json'
+                    super(JSONResponse, self).__init__(content, **kwargs)
+
+    我们的API的根是成为一个支持*监听所有已经存在的`snippets`* 或者*创建一个新的`snippet`*。
+    
+            @csrf_exempt
+            def snippet_list(request):
+                """
+                List all code snippets, or create a new snippet
+                :param request:
+                :return:
+                """
+            
+                if request.method == 'GET':
+                    snippts = Snippet.objects.all()
+                    serializer = SnippetSerializer(snippts, many=True)
+                    return JSONResponse(serializer.data)
+            
+                elif request.method == 'POST':
+                    data = JSONParser().parse(request)
+                    serializer = SnippetSerializer(data=data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return JSONResponse(serializer.data, status=201)
+                return JSONResponse(serializer.errors, status=404)
+
+    **Note:**在这里因为我们的要POST到这个view的客户端没有CSRF token，所以我们将view标识为`csrf_exempt`。这并不是我们通常想要的，而且REST 框架views实际上使用了比这种方法更加敏感的行为。
+
+    在这里，我们仍然需要一个view去对应处理一个独立的snippet，能够去获取，更新，删除这个snippet
+
+
+            @csrf_exempt
+            def snippet_detail(request, pk):
+                """
+                Retrieve, update or delete a code snippet.
+                :param request:
+                :param pk:
+                :return:
+                """
+                try:
+                    snippet = Snippet.objects.get(pk=pk)
+                except Exception as e:
+                    print e
+                    return HttpResponse(status=404)
+            
+                if request.method == 'GET':
+                    serializer = SnippetSerializer(snippet)
+                    return JSONResponse(serializer.data)
+            
+                elif request.method == 'PUT':
+                    data = JSONParser().parse(request)
+                    serializer = SnippetSerializer(snippet, data=data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return JSONResponse(serializer.data)
+                    return JSONResponse(serializer.errors, status=400)
+            
+                elif request.method == 'DELETE':
+                    snippet.delete()
+                    return HttpResponse(status=204)
+
+    之后我们需要接通这些views，创建`snippets/urls.py`文件：
+
+            from django.conf.urls import url
+            from snippets import views
+            
+            urlpatterns = [
+                url(r'^snippets/$', views.snippet_list),
+                url(r'^snippets/(?P<pk>[0-9]+)/$', views.snippet_detail),
+            ]
+
+    最后我们需要接通*根urlconf*, 在`tutorial/urls.py `中，包含我们的snippet app的URLs。
+
+            from django.conf.urls import url, include
+            from django.contrib import admin
+            
+            urlpatterns = [
+                url(r'^admin/', admin.site.urls),
+                url(r'^', include('snippets.urls')),
+            ]
+
+    值得注意的是，有一些边界问题我们并没有处理。如果我们发送了一个难看的`JSON`，或者如果一个requeset是被一个view无法处理的方法创建的，那么我们会被一个500的错误结束。
+
+- ### 验证
+
+    在终端启动Web server
+
+            python manage.py runserver 0.0.0.0:8000
+
+    我们可以使用curl或者httpie来测试我们的API。Httpie是由python写的一个友好的http客户端工具。使用前安装
+
+            pip install httpie
+
+    我们获取所有snippets的列表
+
+
+            # http http://127.0.0.1:8000/snippets/
+            HTTP/1.0 200 OK
+            Content-Type: application/json
+            Date: Wed, 28 Dec 2016 09:44:22 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            X-Frame-Options: SAMEORIGIN
+            
+            [
+                {
+                    "code": "foo = \"bar\"\n", 
+                    "id": 1, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"\n", 
+                    "id": 2, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"", 
+                    "id": 3, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }
+            ]
+
+
+    通过指定id获取某个snippets
+
+            # http http://127.0.0.1:8000/snippets/1/
+            HTTP/1.0 200 OK
+            Content-Type: application/json
+            Date: Wed, 28 Dec 2016 09:52:28 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            X-Frame-Options: SAMEORIGIN
+            
+            {
+                "code": "foo = \"bar\"\n", 
+                "id": 1, 
+                "language": "python", 
+                "linenos": false, 
+                "style": "friendly", 
+                "title": ""
+            }
+
+
+
+- ### 现在
+
+    我们现在学习到了serialization API感觉和Django的Form API很相似，还学习到了使用普通的django view
+
+    我们的API views 目前并没有做什么特别的事情，除了服务`JSON`的响应（response），我们仍然有一些错误处理的边界问题需要处理。不过我们仍然完成了一个功能性的Web API。
+
+***
+
+## 教程二：请求和响应（request and response）
+
+
+*从现在开始我们将开始真正的覆盖REST 框架的核心。让我们介绍一些基本的构建块*
+
+1. ### Request 对象
+
+    REST 框架引入了一个`Request`对象，它扩展了普通的`HttpRequest`对象，并且提供了更负载的请求解析。`Request`对象的核心功能是`request.data`属性，与`request.POST`属性相似，但对于Web API更加有用。
+
+            request.POST # 只处理form的数据。只对'POST'方法工作
+
+            request.data # 处理任意的数据。对'POST','PUT','PATCH'起作用。
+
+
+- ### Response 对象
+
+    REST框架还引入了`Response`对象，这是一种`TemplateResponse`，能够处理（take）未渲染的内容（content）并且使用内容协商（negotiation）机制去判定正确的内容类型（content type）最终返回到客户端。
+
+            return Response(data)   # 渲染成特定的由客户端请求决定的内容类型。
+
+- ### 状态码（Status Codes ）
+
+    在views中使用数值型的HTTP状态码往往不能够很明显的来阅读代码。而且在获取了一个error code错误，并不容易引起注意。REST 框架为每一个状态码都提供了更清楚明确的标示，例如在`status`模块中的`HTTP_400_BAD_REQUEST`。使用这些标示比数值型的标示更加明智。
+
+- ### 包装（wrapping）API 视图（views）
+
+    REST 框架提供了两种可以用来编写API视图的wrapper
+
+    1. 对于基于函数的视图使用`@api_view`装饰器
+
+    - 对于基于类的视图使用`APIView`类
+
+    这些封装器（wrapper）提供了一些方法，比如
+
+    1. 确保在视图中收到`Request`实例
+
+    - 添加上下文到`Response`对象，以至于内容协商（content negotiation）能够生效
+
+    这些封装器还提供了了一些行为，比如
+
+    1. 在恰当的时候返回`405 Method Not Allowed` 响应
+
+    - 当接受到错误（malformed）输入的`request.data`时，处理任何`ParseError`的异常。
+
+
+- ### 组合以上组件进行实践
+
+    现在让我们开始使用这些新的组件来写一些视图（views）
+
+    我们不再需要在views.py中的`JSONResponse`类。现在我们删掉这个类。当删除后，我们将开始轻量级的重构我们的视图。
+
+            #from django.shortcuts import render
+            #from django.http import HttpResponse
+            #from django.views.decorators.csrf import csrf_exempt
+            #from rest_framework.renderers import JSONRenderer
+            #from rest_framework.parsers import JSONParser
+            from snippets.models import Snippet
+            from snippets.serializers import SnippetSerializer
+            from rest_framework import status
+            from rest_framework.decorators import api_view
+            from rest_framework.response import Response
+            # Create your views here.
+            
+            
+            #class JSONResponse(HttpResponse):
+            #    """
+            #    An HttpResponse that renders its content into JSON
+            #    """
+            
+            #    def __init__(self, data, **kwargs):
+            #        content = JSONRenderer().render(data)
+            #        kwargs['content_type'] = 'application/json'
+            #        super(JSONResponse, self).__init__(content, **kwargs)
+            
+            
+            #@csrf_exempt
+            @api_view(['GET', 'POST'])
+            def snippet_list(request):
+                """
+                List all code snippets, or create a new snippet
+                :param request:
+                :return:
+                """
+            
+                if request.method == 'GET':
+                    snippts = Snippet.objects.all()
+                    serializer = SnippetSerializer(snippts, many=True)
+                    #return JSONResponse(serializer.data)
+                    return Response(serializer.data)
+            
+                elif request.method == 'POST':
+                    #data = JSONParser().parse(request)
+                    serializer = SnippetSerializer(data=request.data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        #return JSONResponse(serializer.data, status=201)
+                        return Response(serializer.data, status=status.HTTP_201_CREATED)
+                    # return JSONResponse(serializer.errors, status=404)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            
+            
+            #@csrf_exempt
+            @api_view(['GET', 'PUT', 'DELETE'])
+            def snippet_detail(request, pk):
+                """
+                Retrieve, update or delete a code snippet.
+                :param request:
+                :param pk:
+                :return:
+                """
+                try:
+                    snippet = Snippet.objects.get(pk=pk)
+                except Exception as e:
+                    print e
+                    #return HttpResponse(status=404)
+                    return Response(status=status.HTTP_404_NOT_FOUND)
+            
+                if request.method == 'GET':
+                    serializer = SnippetSerializer(snippet)
+                    #return JSONResponse(serializer.data)
+                    return Response(serializer.data)
+            
+                elif request.method == 'PUT':
+                    #data = JSONParser().parse(request)
+                    serializer = SnippetSerializer(snippet, data=request.data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        #return JSONResponse(serializer.data)
+                        return Response(serializer.data)
+                    #return JSONResponse(serializer.errors, status=400)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+                elif request.method == 'DELETE':
+                    snippet.delete()
+                    #return HttpResponse(status=204)
+                    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+    我们的实例的视图是在之前的例子中的一个改进。更加的简明，而且代码看起来与`Forms API`非常相似。我们也可以使用命名好的状态码，这样使响应的含义更加显而易见。
+
+    我们并没有做太多的改动。
+
+    **Note:**我们不再明确的纠结于我们的request和response是否是给定的`content type`，`request.data`能够处理进来的`JSON`requests，但他也能够处理其他的格式。同样的，我们返回`Response`对象data，但是允许REST 框架渲染正确的`response`为正确的`content type`
+
+- ### 添加可选的格式后缀到我们的URLs
+
+    为了利用`responses`不再硬要求一个单独的内容类型（content type）的事实，让我们为API 终端添加一些对其他格式后缀额支持。使用格式后缀（format suffixed）能够提供给我们明确制定格式的URLs，这意味着我们的API将会可以处理类似http://example.com/api/items/4.json这样的URLs。
+
+    对于上面的例子，我们添加一个参数`format`到视图函数里，例如：
+    
+            def snippet_list(request, format=None)
+
+    以及
+
+            def snippet_detail(request, pk, format=None)
+
+    然后轻量的更新urls.py 文件，在已有的URLs外，再追加一组`format_suffix_patterns`
+
+            from django.conf.urls import url
+            from snippets import views
+            from rest_framework.urlpatterns import format_suffix_patterns
+            
+            urlpatterns = [
+                url(r'^snippets/$', views.snippet_list),
+                url(r'^snippets/(?P<pk>\d+)/$', views.snippet_detail),
+            ]
+            
+            urlpatterns = format_suffix_patterns(urlpatterns)
+
+    我们没必要去添加额外的url patterns，但是他提供给我们更加简单，清晰的方法去制定一个特定的格式。
+
+- ### 验证
+
+    首先我们直接获取 snippets的列表，就像之前那么做：  
+
+            $ http http://172.16.136.51:8000/snippets/
+            HTTP/1.0 200 OK
+            Allow: POST, OPTIONS, GET
+            Content-Type: application/json
+            Date: Thu, 29 Dec 2016 05:31:31 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            Vary: Accept, Cookie
+            X-Frame-Options: SAMEORIGIN
+            
+            [
+                {
+                    "code": "foo = \"bar\"\n", 
+                    "id": 1, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"\n", 
+                    "id": 2, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"", 
+                    "id": 3, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }
+            ]
+
+
+    现在我们可以控制我们获取的response的格式，有两种方法
+
+    1. 通过`Accept` 头
+
+            $ http http://172.16.136.51:8000/snippets/ Accept:application/json # 请求JSON格式
+            HTTP/1.0 200 OK
+            Allow: POST, OPTIONS, GET
+            Content-Type: application/json
+            Date: Thu, 29 Dec 2016 05:38:05 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            Vary: Accept, Cookie
+            X-Frame-Options: SAMEORIGIN
+            
+            [
+                {
+                    "code": "foo = \"bar\"\n", 
+                    "id": 1, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"\n", 
+                    "id": 2, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"", 
+                    "id": 3, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }
+            ]
+            
+
+            $ http http://172.16.136.51:8000/snippets/ Accept:text/html
+            HTTP/1.0 200 OK
+            Allow: POST, OPTIONS, GET
+            Content-Type: text/html; charset=utf-8
+            Date: Thu, 29 Dec 2016 05:40:44 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            Vary: Accept, Cookie
+            X-Frame-Options: SAMEORIGIN
+            
+            <!DOCTYPE html>
+            <html>
+              <head>
+                ...
+              </head>
+            
+              
+              <body class="">
+                ...
+                [
+                {
+                    &quot;id&quot;: 1,
+                    &quot;title&quot;: &quot;&quot;,
+                    &quot;code&quot;: &quot;foo = \&quot;bar\&quot;\n&quot;,
+                    &quot;linenos&quot;: false,
+                    &quot;language&quot;: &quot;python&quot;,
+                    &quot;style&quot;: &quot;friendly&quot;
+                },
+                {
+                    &quot;id&quot;: 2,
+                    &quot;title&quot;: &quot;&quot;,
+                    &quot;code&quot;: &quot;print \&quot;hello, world\&quot;\n&quot;,
+                    &quot;linenos&quot;: false,
+                    &quot;language&quot;: &quot;python&quot;,
+                    &quot;style&quot;: &quot;friendly&quot;
+                },
+                {
+                    &quot;id&quot;: 3,
+                    &quot;title&quot;: &quot;&quot;,
+                    &quot;code&quot;: &quot;print \&quot;hello, world\&quot;&quot;,
+                    &quot;linenos&quot;: false,
+                    &quot;language&quot;: &quot;python&quot;,
+                    &quot;style&quot;: &quot;friendly&quot;
+                }
+                ]
+                ...
+            
+              </body>
+              
+            </html>
+
+    - 通过追加后缀格式
+
+            $ http http://172.16.136.51:8000/snippets.json # 请求JSON格式
+            HTTP/1.0 200 OK
+            Allow: POST, OPTIONS, GET
+            Content-Type: application/json
+            Date: Thu, 29 Dec 2016 05:46:07 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            Vary: Accept, Cookie
+            X-Frame-Options: SAMEORIGIN
+            
+            [
+                {
+                    "code": "foo = \"bar\"\n", 
+                    "id": 1, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"\n", 
+                    "id": 2, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }, 
+                {
+                    "code": "print \"hello, world\"", 
+                    "id": 3, 
+                    "language": "python", 
+                    "linenos": false, 
+                    "style": "friendly", 
+                    "title": ""
+                }
+            ]
+
+            $ http http://172.16.136.51:8000/snippets.api # 可浏览的API 后缀
+
+
+    相似的，我们可以控制我们发送的请求`request`格式， 使用`content-type` 头
+
+            # 使用FORM 数据 POST
+            $ http --form POST http://172.16.136.51:8000/snippets/ code="print 123" --debug
+            HTTP/1.0 201 Created
+            Allow: POST, OPTIONS, GET
+            Content-Type: application/json
+            Date: Thu, 29 Dec 2016 05:52:20 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            Vary: Accept, Cookie
+            X-Frame-Options: SAMEORIGIN
+            ...
+            >>> requests.request(**{
+                "allow_redirects": false, 
+                "auth": "None", 
+                "cert": "None", 
+                "data": {
+                    "code": "u'print 123'"
+                }, 
+                "files": {}, 
+                "headers": {
+                    "Content-Type": "application/x-www-form-urlencoded; charset=utf-8", 
+                    "User-Agent": "HTTPie/0.9.9"
+                }, 
+                "method": "u'post'", 
+                "params": {}, 
+                "proxies": {}, 
+                "stream": true, 
+                "timeout": 30, 
+                "url": "u'http://172.16.136.51:8000/snippets/'", 
+                "verify": true
+            })
+            ...            
+            {
+                "code": "print 123", 
+                "id": 4, 
+                "language": "python", 
+                "linenos": false, 
+                "style": "friendly", 
+                "title": ""
+            }
+
+            # 使用JSON POST
+            $ http --json POST http://172.16.136.51:8000/snippets/ code="print 123" --debug
+            HTTP/1.0 201 Created
+            Allow: POST, OPTIONS, GET
+            Content-Type: application/json
+            Date: Thu, 29 Dec 2016 05:53:22 GMT
+            Server: WSGIServer/0.1 Python/2.7.5
+            Vary: Accept, Cookie
+            X-Frame-Options: SAMEORIGIN
+            ...
+            >>> requests.request(**{
+                "allow_redirects": false, 
+                "auth": "None", 
+                "cert": "None", 
+                "data": "{\"code\": \"print 123\"}", 
+                "files": {}, 
+                "headers": {
+                    "Accept": "application/json, */*", 
+                    "Content-Type": "application/json", 
+                    "User-Agent": "HTTPie/0.9.9"
+                }, 
+                "method": "u'post'", 
+                "params": {}, 
+                "proxies": {}, 
+                "stream": true, 
+                "timeout": 30, 
+                "url": "u'http://172.16.136.51:8000/snippets/'", 
+                "verify": true
+            })
+
+            
+            {
+                "code": "print 123", 
+                "id": 5, 
+                "language": "python", 
+                "linenos": false, 
+                "style": "friendly", 
+                "title": ""
+            }
+
+
+    通过使用--debug，我们能够知道request的content-type。
+
+- ### 可浏览性（Browsability）
+
+    从上述可以发现，可以在浏览器中打开`http://172.16.136.51:8000/snippets/`默认返回的是API`http://172.16.136.51:8000/snippets.api`
+
+    因为API选择了基于客户端request的response的content-type， 默认的，API会返回一个当前被浏览器请求的资源的HTML-formatted 表现形式，这样能够让API返回一个完全可以网页浏览的HTML的表现形式。
+
+    能够拥有一个可网页浏览的API是非常有用的，他能够更简单的开发和使用API。并且这样也能够显著的降低其他开发者检查和使用你的API的障碍。
+
+    打开链接[`browsable api`](http://www.django-rest-framework.org/topics/browsable-api/)获取更多的关于可浏览的API功能，以及如何去定制。
+
+***
+
+## 教程三 基于类的视图（Class-based Views）
+
+*我们不仅仅可以编写基于函数的视图，也可以编写基于类的API视图。就像我们所想，这是一个非常强大的模式来让我们复用我们的通用函数/功能（functionality），帮助我们是我们的代码[DRY - Don't repeat yourself](http://en.wikipedia.org/wiki/Don't_repeat_yourself)*
+
+1. ### 使用基于类的视图来重写我们的API
+
+    我们将开始通过基于类的视图来重新编写我们的视图，这涉及到要重构一些我们的`views.py`
+
+            from snippets.models import Snippet
+            from snippets.serializers import SnippetSerializer
+            from django.http import Http404
+            from rest_framework.views import APIView
+            from rest_framework.response import Response
+            from rest_framework import status
+            
+            
+            class SnippetList(APIView):
+                """
+                List all snippets, or create a new snippet.
+                """
+                def get(self, request, format=None):
+                    snippets = Snippet.objects.all()
+                    serializer = SnippetSerializer(snippets, many=True)
+                    return Response(serializer.data)
+            
+                def post(self, request, format=None):
+                    serializer = SnippetSerializer(data=request.data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return Response(serializer.data, status=status.HTTP_201_CREATED)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    到此，已经很好了，看起来很像之前的案例，但是我们的到了更好的方式去分开不同的HTTP 方法，我们也需要更新实例的视图。
+
+            class SnippetDetail(APIView):
+                """
+                Retrieve, update or delete a snippet instance
+                """
+                def get_object(self, pk):
+                    try:
+                        return Snippet.objects.get(pk=pk)
+                    except Exception as e:
+                        print e
+                        raise Http404
+            
+                def get(self, request, pk, format=None):
+                    snippet = self.get_object(pk)
+                    serializer = SnippetSerializer(snippet)
+                    return Response(serializer.data)
+            
+                def put(self, request, pk, format=None):
+                    snippet = self.get_object(pk)
+                    serializer = SnippetSerializer(snippet, data=request.data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return Response(serializer.data)
+                    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+                def delete(self, request, pk, format=None):
+                    snippet = self.get_object(pk)
+                    snippet.delete()
+                    return Response(status=status.HTTP_204_NO_CONTENT)
+
+    这看起来非常好。看起来和之前的基于函数的视图很相似。
+
+    我们也需要去重构`urls.py`，因为我们现在用的是基于类的视图。
+
+            from django.conf.urls import url
+            from snippets import views
+            from rest_framework.urlpatterns import format_suffix_patterns
+            
+            urlpatterns = [
+                #url(r'^snippets/$', views.snippet_list),
+                #url(r'^snippets/(?P<pk>\d+)/$', views.snippet_detail),
+                url(r'^snippets/$', views.SnippetList.as_view()),
+                url(r'^snippets/(?P<pk>\d+/$)', views.SnippetDetail.as_view()),
+            ]
+            
+            urlpatterns = format_suffix_patterns(urlpatterns)
+
+    这样，我们就完成了。如果现在运行服务器，一切都跟之前运行的一样。
+
+- ### 使用mixins类
+
+    我们使用基于类的视图的醉倒的好处是他允许我们简单的组合可复用的行为
+
+    我们目前使用的`create`/`retrive`/`update`/`delete`操作已经和任何一个基于model的API视图很相似了。这些通用的行为已经被REST 框架的`mixin`类封装好了。
+
+    让我们看一看怎么通过使用`mixin`类去组合这些视图。我们再次优化我们的`views.py`模块。
+
+            from snippets.models import Snippet
+            from snippets.serializers import SnippetSerializer
+            from rest_framework import mixins
+            from rest_framework import generics
+            
+            class SnippetList(mixins.ListModelMixin,
+                              mixins.CreateModelMixin,
+                              generics.GenericAPIView):
+                queryset = Snippet.objects.all()
+                serializer_class = SnippetSerializer
+            
+                def get(self, request, *args, **kwargs):
+                    return self.list(request, *args, **kwargs)
+            
+                def post(self, request, *args, **kwargs):
+                    return self.create(request, *args, **kwargs)
+
+    我们来检查一下到底发生了什么事情。
+
+    1. 我们使用`GenericAPIView`构建了我们的视图
+
+    - 增加了`ListModelMixin`和`CreateModeMixin`。
+
+    基类（GenericAPIVIew）提供了核心的功能，`mixin`的类们提供了`.list()`和`.create()`的动作（方法）。然后我们明确的绑定了`get`和`post`方法到相应的动作上。非常简单。
+
+            class SnippetDetail(mixins.RetrieveModelMixin,
+                                mixins.UpdateModelMixin,
+                                mixins.DestroyModelMixin,
+                                generics.GenericAPIView):
+                queryset = Snippet.objects.all()
+                serializer_class = SnippetSerializer
+            
+                def get(self, request, *args, **kwargs):
+                    return self.retrieve(request, *args, **kwargs)
+            
+                def put(self, request, *args, **kwargs):
+                    return self.update(request, *args, **kwargs)
+            
+                def delete(self, request, *args, **kwargs):
+                    return self.destroy(request, *args, **kwargs)
+
+    非常相似。我们又使用了`GenericAPIView`类来提供核心功能，并添加了`mixins`类来提供动作`.retrieve()`，`.update()`，`.destroy()`。
+
+- ### 使用 基于类的 generic 视图（generic class-based views）
+
+    使用`mixin`的类，我们已经重新编写了视图，使我们用更轻量级的代码，但是我们能够走的更远，将代码进一步精简。REST 框架提供了一组已经混合好的（mixed-in）`generic`视图，这样我们可以再次更进一步的精简我们的`views.py`模块
+
+            from snippets.models import Snippet
+            from snippets.serializers import SnippetSerializer
+            from rest_framework import generics
+            
+            
+            class SnippetList(generics.ListCreateAPIView):
+                queryset = Snippet.objects.all()
+                serializer_class = SnippetSerializer
+            
+            
+            class SnippetDetail(generics.RetrieveUpdateDestroyAPIView):
+                queryset = Snippet.objects.all()
+                serializer_class = SnippetSerializer
+
+    喔噢，太简洁了！我们节省了大量的时间，而且我们的代码看起来非常的简介，非常干净，非常符合Django。
+
+***
+
+## 教程四 认证和权限（Authentication & Permissions）
+

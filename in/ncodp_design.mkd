@@ -1,0 +1,710 @@
+# ncodp 项目 开发过程
+
+***
+
+1. ## 安装django
+        # pip install django
+
+- ## 安装mongodb
+
+        # yum install mongodb*
+        # systemctl is_enable mongod.service
+        # systemctl start mongod.service
+        # systemctl enable mongod.service
+
+- ## 安装mongoengine
+
+        # pip install mongoengine
+
+- ## 安装ffmpeg
+
+- - ***不在此处体现，或TODO***
+
+- ## 创建 项目和app
+
+        # django-admin startproject ncodp
+        # python manage.py startapp handlev
+
+- ## 配置 django
+
+- - ### 配置settings.py
+
+
+            # cat settings.py
+            ...
+            
+            # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ...
+            
+            # SECURITY WARNING: keep the secret key used in production secret!
+            SECRET_KEY = 'b0@7sw**axig7crvvc7@$gys*^eb=*p$p4+m*i7+5avxk(#x^w'
+            ...
+            
+            ALLOWED_HOSTS = [u'172.16.136.51']
+            ...
+    
+            # Application definition
+            INSTALLED_APPS = [
+                'handlev',
+                ...
+            ]
+            ...
+            TEMPLATES = [
+                {
+                    'BACKEND': 'django.template.backends.django.DjangoTemplates',
+                    'DIRS': [os.path.join(BASE_DIR, 'templates')],
+                    ...
+                }
+            ]
+            ...
+            
+            # Static files (CSS, JavaScript, Images)
+            STATIC_URL = '/static/'
+            STATIC_ROOT = os.path.join(BASE_DIR, 'collectstatic')
+    
+            STATICFILES_DIRS = (
+                os.path.join(BASE_DIR, "static"),
+            )
+            
+            MEDIA_URL = '/upload/'
+            MEDIA_ROOT = os.path.join(BASE_DIR, "upload")
+
+- - 创建static目录，media_root目录
+
+            # mkdir -p /path/to/ncodp_project/static
+            # mkdir -p /path/to/ncodp_project/upload
+
+- - 使用的静态资源如下：
+
+            [root@localhost static]# ls -ltr
+            总用量 16
+            drwxr-xr-x. 2 root root   61 11月 30 13:44 js
+            drwxr-xr-x. 2 root root 4096 11月 30 13:44 css
+            drwxr-xr-x. 2 root root    6 11月 30 13:44 imgs
+            drwxr-xr-x. 2 root root 4096 11月 30 13:44 fonts
+            drwxr-xr-x. 7 root root   59 11月 30 13:44 assets
+            drwxr-xr-x. 5 root root 4096 11月 30 13:44 jquery
+            drwxr-xr-x. 2 root root   27 11月 30 13:44 respond
+            drwxr-xr-x. 2 root root   29 11月 30 13:44 html5shiv
+            drwxr-xr-x. 8 root root 4096 11月 30 13:44 bootstrap-fileinput
+            drwxr-xr-x. 2 root root   41 12月  2 15:30 icos
+
+- ## 数据库使用mongodb，不使用models.py模块
+
+- - 在mongodb 中创建数据库dsapp1
+
+            # mongo
+            > use dsapp1
+
+- - 在handlev 目录中创建docs.py 模块
+
+            # cat docs.py
+            # import mongoengine 模块
+            from mongoengine import *
+            # 连接数据库 dsapp1
+            connect('dsapp1')
+            
+            # 创建文档（表）Img
+            class Img(Document):
+                imgname = StringField()
+                imgpath = StringField()
+                pornlevel = IntField()
+                imgtime = FloatField()
+            
+                meta = {"allow_inheritance": True}
+            
+            # 创建文档（表）Video
+            class Video(Document):
+            rname = StringField()
+            rpath = StringField()
+            rmd5 = StringField(max_length=1024)
+            rtype = StringField()
+            rduration = FloatField()
+            imglist = ListField(ReferenceField(Img, reverse_delete_rule=CASCADE))
+            imgcount = IntField()
+            rratio = FloatField()
+            rsize = FloatField()
+        
+            meta = {"allow_inheritance": True}
+
+- ## 创建异常处理模块 
+
+            # cat Excepts.py
+            # -*- coding: utf-8 -*-
+            '''
+            Created on Sep 8, 2016
+            
+            @author: test
+            '''
+            
+            
+            class CreateDir_Exception(Exception):
+                '''Create dir failed'''
+                def __str__(self):
+                    return "Create dir exception"
+            
+                def __unicode__(self):
+                    return "failed to create dir"
+            
+            
+            class CreateFile_Exception(Exception):
+                '''Create file failed'''
+                def __str__(self):
+                    return "Create file exception"
+            
+                def __unicode__(self):
+                    return "failed to create file"
+            
+            
+            class UserLogin_Exception(Exception):
+                '''Create file failed'''
+                def __str__(self):
+                    return "User login exception"
+            
+                def __unicode__(self):
+                    return "failed to login to server"
+            
+            
+            class NotFile_Exception(Exception):
+                '''Can not found the specified file'''
+                def __str__(self):
+                    return repr("No such file.")
+            
+                def __unicode__(self):
+                    return repr("No such file.")
+            
+            
+            class FileExist_Exception(Exception):
+                '''
+                specified file already exists
+                '''
+                def __str__(self):
+                    return repr("file already exists.")
+            
+                def __unicode__(self):
+                    return repr("file already exists.")
+            
+            
+            class InvalidOutput_Exception(Exception):
+                '''
+                output is not right
+                '''
+                def __str__(self):
+                    return repr("Invalid output")
+            
+                def __unicode__(self):
+                    return repr("Invalid output")
+            
+            
+            class OutofRange_Exception(Exception):
+                '''
+                output is out of range
+                '''
+                def __str__(self):
+                    return repr("filename is not a single file")
+            
+                def __unicode__(self):
+                    return repr("filename is not a single file")
+            
+            
+            class NotSame_Exception(Exception):
+                ''' strs are not same '''
+                def __str__(self):
+                    return repr("strs are not same")
+            
+                def __unicode__(self):
+                    return repr("strs are not same")
+
+- ## 创建功能模块 cmutils.py
+
+            # cat cmutils.py
+            import os
+            import time
+            import struct
+            import hashlib
+            import commands
+            import shutil
+            import re
+            import math
+            import random
+            import stat
+            import pwd
+            from . import Excepts
+
+            # 支持的视频格式，需要继续添加，
+            # 根据ffmpeg 支持的格式来确定
+            videotypedict = {
+                "000001BA": "MPEG1",
+                "000001B3": "MPEG2",
+                "6D6F6F76": "MOV",
+                "41564920": "AVI",
+                "6D703432": "MP41",
+                "6D703431": "MP42",
+                "00000018": "MP4",
+                "3026B2758E66CF11": "WMV",
+            }
+
+            # 时间戳方法
+            def localtime2str():
+                ts = time.time()
+                ts_surfix = time.strftime("%Y%m%d%H%M%S", time.localtime(ts))
+                return ts_surfix
+
+            # 字节转16进制（判断输入视频格式使用）
+            def bytes2hex(bytes):
+                num = len(bytes)
+                hexstr = u""
+                for i in range(num):
+                    t = u"%x" % bytes[i]
+                    if len(t) % 2:
+                        hexstr += u"0"
+                    hexstr += t
+                return hexstr.upper()
+            
+            # 获取文件的格式
+            def get_vtype(filename):
+                binfile = open(filename, 'rb')
+                ftype = None
+                for hcode in videotypedict.keys():
+                    numofbytes = len(hcode) / 2
+                    binfile.seek(0)
+                    hbytes = struct.unpack("B"*numofbytes, binfile.read(numofbytes))
+                    f_hcode = bytes2hex(hbytes)
+                    if f_hcode == hcode:
+                        ftype = videotypedict[hcode]
+                        break
+                binfile.close()
+                return ftype
+            
+            # 获取文件md5校验值
+            def md5sum(filename):
+                fd = open(filename, 'r')
+                fstrs = fd.read()
+                fd.close()
+                fmd5 = hashlib.md5(fstrs)
+                return fmd5.hexdigest()
+            
+            # 获取视频长度
+            def get_video_duration(filename):
+                cmd = '/usr/local/bin/ffmpeg -i %s' % filename
+                duptn = r"Duration: (\d+)\:(\d+)\:(\d+\.\d+)"
+                duobj = re.compile(duptn)
+                status, output = commands.getstatusoutput(cmd)
+                print output
+                try:
+                    h, m, s = duobj.findall(output)[0]
+                except Exception as e:
+                    print e
+                    raise Excepts.InvalidOutput_Exception
+                duration = int(h)*3600 + int(m)*60 + float(s)
+                return duration
+            
+            # 视频切图
+            def ffmpeg_cut(filepath, imgdir, filename, fps=0.1, ss=None, till=None):
+                """
+            
+                :param file:
+                :param vdir:
+                :param fps:
+                :param ss:
+                :param till:
+                :return:
+                """
+                if fps > 50 or fps < 0.1:
+                    # fps is out of range
+                    return "500"
+                exefile = '/usr/local/bin/ffmpeg'
+                duration = get_video_duration(filepath)
+                totalimgs = int(math.ceil(duration*fps))
+                cmd = exefile + ' -i %s -r %s -f image2 %s/%s-%%1d.jpeg ' \
+                                % (filepath, fps, imgdir, filename)
+                for f in filepath, exefile:
+                    if not os.path.isfile(f):
+                        # file is not exist
+                        return "404"
+                if not os.path.isdir(imgdir):
+                    os.mkdir(imgdir)
+                if os.listdir(imgdir):
+                    # imgdir is not empty
+                    return "100"
+                if ss is not None:
+                    cmd += ' -ss %s ' % ss
+                if till is not None:
+                    cmd += ' -t %s ' % till
+                status = os.system(cmd)
+                if status:
+                    try:
+                        shutil.rmtree(imgdir, True)
+                    except:
+                        raise Excepts.InvalidOutput_Exception
+                if not (totalimgs + 1) <= len(os.listdir(imgdir)) <= (totalimgs + 2):
+                    # imgs not right, should equals totalimgs
+                    return "501"
+                return len(os.listdir(imgdir))
+            
+            # 引擎demo
+            def demoengie():
+                plevellist = [0, 1, 2, 3, 4, 5]
+                ratio = 20
+                plevel = random.choice(plevellist)
+                pr = plevel * ratio
+                return plevel, pr
+            
+            # 判断目录是否属于root
+            def if_dir_of_root(dir):
+                root_info = pwd.getpwnam("root")
+                r_uid = root_info.pw_uid
+                d_stat = os.stat(dir)
+                dir_uid = d_stat[stat.ST_UID]
+                print r_uid, dir_uid
+                if r_uid == dir_uid:
+                    return True
+                else:
+                    return False
+
+- ## 配置 views.py 视图模块
+
+            # cat views.py
+            from django.shortcuts import render
+            from django.shortcuts import render_to_response
+            from django.views.decorators.csrf import csrf_exempt
+            from ncodp.settings import MEDIA_ROOT
+            import os, shutil
+            from . import cmutils, Excepts, docs
+            
+            # Create your views here.
+            
+            
+            def dashboard(request, tname):
+                return render_to_response(tname)
+            
+            # 上传视频文件的处理
+            @csrf_exempt
+            def uploadfile(request):
+                if request.method == "POST":
+                    mfile = request.FILES.get("mediafile", None)
+                    if not mfile:
+                        return render_to_response("search-error.html", {"output": "No file upload"})
+                tstr = cmutils.localtime2str()
+                fname = mfile.name
+                rbytesize = mfile.size
+                rsize = '%.2f' % ((float(rbytesize)/float(1024))/float(1024))
+                for sep in [" ", '(', ')', ',', '&']:
+                    if sep in fname:
+                        fname = fname.replace(sep, '_')
+                destdirname = fname + tstr
+                destdir = os.path.abspath(os.path.join(MEDIA_ROOT, destdirname))
+                rpath = destdirname
+                destfile = os.path.abspath(os.path.join(destdir, fname))
+                if os.path.isdir(destdir):
+                    raise Excepts.FileExist_Exception()
+                try:
+                    os.mkdir(destdir)
+                except Exception as e:
+                    print e
+                    raise Excepts.CreateDir_Exception()
+                dest = open(destfile, 'wb+')
+                for chunk in mfile.chunks():
+                    dest.write(chunk)
+                dest.close()
+                ftype = cmutils.get_vtype(destfile)
+                if not ftype:
+                    try:
+                        shutil.rmtree(destdir, True)
+                    except:
+                        raise Excepts.InvalidOutput_Exception
+                    return render_to_response('search-error.html',
+                                              {"output": "Not a supported type, please upload a video "})
+                md5value = cmutils.md5sum(destfile)
+                d = cmutils.get_video_duration(destfile)
+                video = docs.Video.objects(rmd5=md5value)
+                if video:
+                    if len(video) != 1:
+                        return render_to_response('search-error.html', {"output": "video is out of range"})
+                    try:
+                        shutil.rmtree(destdir, True)
+                    except:
+                        raise Excepts.InvalidOutput_Exception
+                    return render_to_response('videolists.html', {"output": "Video already exist",
+                                                                  "back": True,
+                                                                  "allobj": video})
+                res = docs.Video(rname=fname,
+                                 rsize=rsize,
+                                 rpath=rpath,
+                                 rmd5=md5value,
+                                 rtype=ftype,
+                                 rduration=d)
+                res.save()
+                oblist = [res]
+                return render_to_response('videolists.html', {"output": "Upload successfully",
+                                                              "back": True,
+                                                              "allobj": oblist})
+            
+
+            # 列出所有视频
+            @csrf_exempt
+            def videwlist(request, ret):
+                allobj = docs.Video.objects.all()
+                if not allobj:
+                    return render_to_response('search-error.html', {"output": "No video found"})
+            
+                return render_to_response(ret, {"output": "All Videos list as bellow:",
+                                                "back": False,
+                                                "allobj": allobj})
+
+            # 查看img 信息
+            @csrf_exempt
+            def imginfo(request, rmd5, imgtime):
+                video = docs.Video.objects(rmd5=rmd5)
+                if not video:
+                    raise Excepts.NotFile_Exception()
+                if len(video) != 1:
+                    raise Excepts.InvalidOutput_Exception()
+                imglist = video[0].imglist
+                vname = video[0].rname
+                for img in imglist:
+                    if img.imgtime == float(imgtime):
+                        imgpath = os.path.join(img.imgpath, img.imgname)
+                        print imgpath
+                        iname = img.imgname
+                        break
+                if not imgpath:
+                    return render_to_response('search-error.html', {"output": "No img found"})
+                return render_to_response('image.html', {"imgpath": imgpath,
+                                                         "vname": vname,
+                                                         "iname": iname,
+                                                         "rmd5": rmd5})
+            
+
+            # 切图处理
+            @csrf_exempt
+            def cutfiles(request, rmd5):
+                # at this place ffmpeg to handle
+                video = docs.Video.objects(rmd5=rmd5)
+                if not video:
+                    raise Excepts.NotFile_Exception()
+                if len(video) != 1:
+                    raise Excepts.InvalidOutput_Exception()
+                filedir = video[0].rpath
+                filename = video[0].rname
+                filepath = os.path.join(MEDIA_ROOT, filedir, filename)
+                imgreldir = os.path.join(filedir, 'imgs')
+                imgdir = os.path.join(MEDIA_ROOT, imgreldir)
+                print filepath, imgdir
+                fps = 0.1
+                cuttime = float("%.2f" % (1/fps))
+                d = cmutils.ffmpeg_cut(filepath, imgdir, filename, fps=fps, ss=None, till=None)
+                if d == "500":
+                    return render_to_response('search-error.html', {'output': "fps is out of range"})
+                elif d == "501":
+                    return render_to_response('search-error.html', {'output': "mgs not right, should equals totalimgs"})
+                elif d == "100":
+                    return render_to_response('search-error.html', {'output': "imgdir is not empty"})
+                elif d == "404":
+                    return render_to_response('search-error.html', {'output': "Not found"})
+                docs.Video.objects(rmd5=rmd5).update(imgcount=d)
+                imglist = []
+                for i in range(d):
+                    imgname = filename + '-' + str(i + 1) + ".jpeg"
+                    imgtime = float(i * cuttime)
+                    print imgtime
+                    print type(imgtime)
+                    img = docs.Img(imgname=imgname,
+                                   pornlevel=100,
+                                   imgtime=imgtime,
+                                   imgpath=imgreldir)
+                    img.save()
+                    imglist.append(img)
+                docs.Video.objects(rmd5=rmd5).update(imglist=imglist)
+                return render_to_response('search-error.html', {'output': "cut successfully"})
+            
+
+            # 引擎处理
+            @csrf_exempt
+            def dsengine(request, rmd5):
+                video = docs.Video.objects(rmd5=rmd5)
+                if not video:
+                    return render_to_response('search-error.html', {'output': "Does not exist the video in db"})
+                if len(video) != 1:
+                    return render_to_response('search-error.html', {'output': "Not right, %s videos found in the db" % len(video)})
+                imgcount = float(video[0].imgcount)
+                prlist= []
+                for img in video[0].imglist:
+                    pornlevel, pr = cmutils.demoengie()
+                    img.update(pornlevel=pornlevel)
+                    prlist.append(pr)
+                prsum = float(sum(prlist))
+                rratio = '%.2f' % (prsum/imgcount)
+                docs.Video.objects(rmd5=rmd5).update(rratio=rratio)
+                return render_to_response('search-error.html', {'output': "handle successfully"})
+            
+
+            # 播放视频
+            @csrf_exempt
+            def play(request, rmd5):
+                video = docs.Video.objects(rmd5=rmd5)
+                if not video:
+                    return render_to_response('search-error.html', {'output': "Does not exist the video in db"})
+                if len(video) != 1:
+                    return render_to_response('search-error.html', {'output': "Not right, %s videos found in the db" % len(video)})
+                leveldict = {
+                    100: "gray",
+                    0: "green",
+                    1: "yellow",
+                    2: "blue",
+                    3: "pink",
+                    4: "purple",
+                    5: "red",
+                 }
+                '''
+                filedir = video[0].rpath
+                filename = video[0].rname
+                filepath = os.path.join(filedir, filename)
+                if imglist:
+                    for img in imglist:
+                        imgname = img.imgname
+                        imgpath = img.imgpath
+                        imglevel = img.pornlevel
+                        imgcount = video[0].imgcount
+                        imgtime = img.imgtime
+                '''
+                return render_to_response("play.html", {"video": video[0],
+                                                        "ld": leveldict})
+            
+            # 删除视频以及相关数据库信息
+            @csrf_exempt
+            def delete(request, rmd5):
+                video = docs.Video.objects(rmd5=rmd5)
+                if not video:
+                    return render_to_response('search-error.html', {'output': "Does not exist the video in db"})
+                if len(video) != 1:
+                    return render_to_response('search-error.html', {'output': "Not right, %s videos found in the db" % len(video)})
+                filedir = video[0].rpath
+                rname = video[0].rname
+                filepath = os.path.join(MEDIA_ROOT, filedir)
+                try:
+                    shutil.rmtree(filepath)
+                except Exception as e:
+                    print e
+                    return render_to_response('search-error.html', {'output': "Delete %s failed" % rname})
+                if not video[0].imglist:
+                    video[0].delete()
+                else:
+                    for img in video[0].imglist:
+                        img.delete()
+                return render_to_response('search-error.html', {'output': "%s deleted" % rname})
+            
+
+            # 搜索相关视频
+            @csrf_exempt
+            def search(request):
+                if request.method == "POST":
+                    keyword = request.POST.get('query', None)
+                    if not keyword:
+                        return render_to_response('search-error.html')
+                    oblist = docs.Video.objects(rname__contains=keyword)
+                    if not oblist:
+                        return render_to_response('search_noret.html', {'keyword': keyword})
+                    return render_to_response('videolists.html', {"output": "Videos list as bellow",
+                                                                  "back": True,
+                                                                  "allobj": oblist})
+            
+
+            # 扫描某个目录
+            @csrf_exempt
+            def scan_dir(request):
+                if request.method == "POST":
+                    rdir = request.POST.get('scan', None)
+                    if not rdir:
+                        return render_to_response('search-error.html', {'output': "Please give a directory"})
+                if not os.path.isdir(rdir):
+                    return render_to_response('search-error.html', {'output': "%s is not a directory" % rdir})
+                if cmutils.if_dir_of_root(rdir):
+                    return render_to_response("search-error.html", {"output": "Please not choose the dir belong to root"})
+                ofiles = os.listdir(rdir)
+                oblist = []
+                for ofile in ofiles:
+                    filepath = os.path.abspath(os.path.join(rdir, ofile))
+                    if not os.path.isfile(filepath):
+                        continue
+                    ftype = cmutils.get_vtype(filepath)
+                    if not ftype:
+                        continue
+                    filemd5 = cmutils.md5sum(filepath)
+                    video = docs.Video.objects(rmd5=filemd5)
+                    if not video:
+                        d = cmutils.get_video_duration(filepath)
+                        osize = os.path.getsize(filepath)
+                        rsize = '%.2f' % ((float(osize) / float(1024)) / float(1024))
+                        rpath = rdir
+                        md5value = filemd5
+                        ftype = cmutils.get_vtype(filepath)
+            
+                        res = docs.Video(rname=ofile,
+                                         rsize=rsize,
+                                         rpath=rpath,
+                                         rmd5=md5value,
+                                         rtype=ftype,
+                                         rduration=d)
+                        res.save()
+                        oblist.append(res)
+                    else:
+                        oblist.extend(video)
+                return render_to_response('videolists.html', {"output": "Scan successfully",
+                                                              "back": True,
+                                                              "allobj": oblist})
+            
+            
+            # 关于
+            def about(request):
+                dict = {"Deepsight_demo": "V0.1",
+                        "DSweb_demo": "v0.1",}
+                return render_to_response("about.html", {"dict": dict})
+
+
+- ## 配置urls.py 模块
+
+            # cat urls.py
+            """ncodp URL Configuration
+            
+            from django.conf.urls import url
+            from django.contrib import admin
+            from django.views.static import serve
+            from handlev import views
+            import settings
+            
+            urlpatterns = [
+                url(r'^admin/', admin.site.urls),
+                url(r'^upload/(?P<path>.*)/$', serve, {'document_root': settings.MEDIA_ROOT}),
+                url(r'^$', views.dashboard, {'tname': 'index.html'}),
+                url(r'^index/$', views.dashboard, {'tname': 'index.html'}),
+                url(r'^upload/$', views.uploadfile),
+                url(r'^videolists/$', views.videwlist, {'ret': 'videolists.html'}),
+                url(r'^imginfo/(?P<rmd5>\w+)/(?P<imgtime>\d+.\d+)/$', views.imginfo),
+                url(r'^search/$', views.search),
+                url(r'^cutfiles/(?P<rmd5>\w+)/$', views.cutfiles),
+                url(r'^dsengine/(?P<rmd5>\w+)/$', views.dsengine),
+                url(r'^play/(?P<rmd5>\w+)/$', views.play),
+                url(r'^delete/(?P<rmd5>\w+)/$', views.delete),
+                url(r'^about/$', views.about),
+                url(r'^scan/$', views.scan_dir),
+            ]
+
+- ## 模板编辑
+
+- - ***不在此处体现***
+
+- ## 简单启动 项目
+
+            # python manage.py runserver 0.0.0.0:80
+
+- ## TODO
+
+- - 使用nginx部署
+- - 引擎使用
+- - RestAPI 迁移
+- - 前端美化
+- - 消息中间件引入，队列引入
+- - 优化
+- - 其他功能加入

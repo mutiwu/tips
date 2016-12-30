@@ -91,10 +91,16 @@
 
 >`192.168.25.12:3260,1 iqn.2015-03.cn.vqiu.iscsi:server0`
 
-**启动iscsi服务**
+**login iscsi lun**
 
->`# systemctl start iscsi.service`
+>`# iscsiadm -m node -T iqn.2015-03.cn.vqiu.iscsi:server0 -p 172.16.236.201 --login`
+
+**logout iscsi lun**
+
+>`# iscsiadm -m node -T iqn.2015-03.cn.vqiu.iscsi:server0 -p 172.16.236.201 --logout`
 
 **用fdisk查看是否多一块存储出来**
 
 >`# fdisk -l`
+
+

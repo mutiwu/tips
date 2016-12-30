@@ -1,0 +1,29 @@
+# flask
+
+***
+
+## 安装virtualenv
+
+> \# easy_install virtualenv
+
+> $ sudo apt-get install python-virtualenv
+
+## 创建虚拟环境
+
+> $ virtualenv flask
+
+## 删除虚拟环境
+
+**删除所在目录即可**
+
+> $ rm -rf flask
+
+## 使用虚拟环境
+
+> source flask/bin/activate
+
+## 创建一个app的基本程序目录结构
+
+
+
+

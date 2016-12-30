@@ -1,0 +1,4 @@
+# windows 安装py2ex2
+
+
+  > pip install http://sourceforge.net/projects/py2exe/files/latest/download?source=files

@@ -1,0 +1,13 @@
+- **django rest framework和django form都可以实现接收前端传回的post数据，用哪个好呢?**
+
+        这个问题我和同事讨论过,django rest framewrok 主要用来方便基于ajax的web app和移动app应用的,输入输出以序列化的json为主,页面主要是静态的输出,客户端动态渲染.而django form则主要适用于传统的表单由后端渲染的html的情况.
+        django form的好处是可以把表单控件的签到逻辑封装到Widget当中,例如TreeSelection,DateSelection,在from类中简单声明,在模板中form.as_table即可使用,好处是
+        增减字段只需要更改form,不用改页面,如果是ModelForm,那改完model就了事了.
+        方便继承
+        我同事认为这样缺点主要是把View(Template,JS,界面)的东西和Controller(Form,Python,业务逻辑)的东西混在了一起.
+        我们后来达成的共识是,如果你的应用是ajax的,就单独在前端页面构建表单,然后用rest framework通信.如果是传统页面(表单嵌在html里面),那还是用django form
+        
+        作者：YoungJoy
+        链接：https://www.zhihu.com/question/22223041/answer/30659654
+        来源：知乎
+        著作权归作者所有，转载请联系作者获得授权。
